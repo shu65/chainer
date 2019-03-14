@@ -150,10 +150,9 @@ def check_multi_node_bn(comm, use_gpu=False, backend='auto',
     l4.backward()
     comm.allreduce_grad(m4)
 
-    atol = 1e-5
-    rtol = 1e-4
+    assert_option = {'atol': 1e-4, 'rtol': 1e-3}
     if io_dtype == numpy.float16:
-        atol = 1e-3
+        assert_option = {'atol': 1e-3, 'rtol': 1e-2}
 
     if comm.rank == 0:
         for p1, p2, p3, p4 in zip(
@@ -176,9 +175,9 @@ def check_multi_node_bn(comm, use_gpu=False, backend='auto',
             assert (p4[1].data.dtype == param_dtype)
 
             chainer.testing.assert_allclose(p1[1].grad, p3[1].grad,
-                                            atol=atol, rtol=rtol)
+                                            **assert_option)
             chainer.testing.assert_allclose(p1[1].grad, p4[1].grad,
-                                            atol=atol, rtol=rtol)
+                                            **assert_option)
 
             # This is to see that this test is valid.
             if comm.size >= 2:
