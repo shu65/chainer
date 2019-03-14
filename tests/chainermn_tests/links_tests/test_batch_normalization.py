@@ -92,8 +92,16 @@ def check_multi_node_bn(comm, use_gpu=False, backend='auto',
     y_local = comm.mpi_comm.scatter(
         y.reshape(comm.size, local_batchsize))
 
-    x = x.astype(dtype)
-    x_local = x_local.astype(dtype)
+    io_dtype = dtype
+    l_dtype = dtype
+    bn_dtype = dtype
+    if dtype == chainer.mixed16:
+        io_dtype = numpy.float16
+        l_dtype = numpy.float16
+        bn_dtype = numpy.float32
+
+    x = x.astype(io_dtype)
+    x_local = x_local.astype(io_dtype)
 
     if use_gpu:
         x = chainer.cuda.to_gpu(x)
@@ -144,7 +152,7 @@ def check_multi_node_bn(comm, use_gpu=False, backend='auto',
 
     atol = 1e-5
     rtol = 1e-4
-    if dtype == numpy.float16:
+    if io_dtype == numpy.float16:
         atol = 1e-3
 
     if comm.rank == 0:
@@ -158,10 +166,14 @@ def check_multi_node_bn(comm, use_gpu=False, backend='auto',
             assert (p3[0] == name)
             assert (p4[0] == name)
 
-            assert (p1[1].data.dtype == dtype)
-            assert (p2[1].data.dtype == dtype)
-            assert (p3[1].data.dtype == dtype)
-            assert (p4[1].data.dtype == dtype)
+            if '/l' in name:
+                param_dtype = l_dtype
+            else:
+                param_dtype = bn_dtype
+            assert (p1[1].data.dtype == param_dtype)
+            assert (p2[1].data.dtype == param_dtype)
+            assert (p3[1].data.dtype == param_dtype)
+            assert (p4[1].data.dtype == param_dtype)
 
             chainer.testing.assert_allclose(p1[1].grad, p3[1].grad,
                                             atol=atol, rtol=rtol)
@@ -209,7 +221,8 @@ def test_version_check():
 
 @pytest.mark.parametrize(('communicator_class', 'backend', 'dtype'), [
     (NaiveCommunicator, 'mpi', numpy.float16),
-    (NaiveCommunicator, 'mpi', numpy.float32)])
+    (NaiveCommunicator, 'mpi', numpy.float32),
+    (NaiveCommunicator, 'mpi', chainer.mixed16)])
 def test_multi_node_bn_cpu(communicator_class, backend, dtype):
     comm = create_communicator(communicator_class, mpi_comm,
                                use_gpu=False)
@@ -221,8 +234,10 @@ def test_multi_node_bn_cpu(communicator_class, backend, dtype):
     (NaiveCommunicator, 'mpi', numpy.float32),
     (PureNcclCommunicator, 'mpi', numpy.float32),
     (PureNcclCommunicator, 'mpi', numpy.float16),
+    (PureNcclCommunicator, 'mpi', chainer.mixed16),
     (PureNcclCommunicator, 'nccl', numpy.float32),
-    (PureNcclCommunicator, 'nccl', numpy.float16)])
+    (PureNcclCommunicator, 'nccl', numpy.float16),
+    (PureNcclCommunicator, 'nccl', chainer.mixed16)])
 @chainer.testing.attr.gpu
 def test_multi_node_bn_gpu(communicator_class, backend, dtype):
     comm = create_communicator(communicator_class, mpi_comm,

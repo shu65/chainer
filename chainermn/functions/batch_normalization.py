@@ -43,17 +43,17 @@ class _MpiBackend(_MultiNodeBatchNormalizationBackend):
 
     def forward(self, axis, gamma, x, xp):
         mpi_comm = self.comm.mpi_comm
-        tmp = xp.empty(gamma.size * 2, dtype=x.dtype)
-        x.mean(axis=axis, out=tmp[:gamma.size])
-        xp.square(x).mean(axis=axis, out=tmp[gamma.size:])
-        if x.dtype == numpy.float16:
+        tmp = xp.empty(gamma.size * 2, dtype=gamma.dtype)
+        x.mean(axis=axis, out=tmp[:gamma.size], dtype=gamma.dtype)
+        xp.square(x).mean(axis=axis, out=tmp[gamma.size:], dtype=gamma.dtype)
+        if gamma.dtype == numpy.float16:
             tmp = tmp.astype(numpy.float32)
         if xp is cuda.cupy:
             chainer.cuda.Stream.null.synchronize()
         mpi_comm.Allreduce(
             self.mpi4py_module.IN_PLACE,
             self.memory_utility_module.array_to_buffer_object(tmp))
-        if x.dtype == numpy.float16:
+        if gamma.dtype == numpy.float16:
             tmp = tmp.astype(numpy.float16)
         tmp *= 1.0 / mpi_comm.size
         mean = tmp[:gamma.size]
@@ -63,17 +63,17 @@ class _MpiBackend(_MultiNodeBatchNormalizationBackend):
 
     def backward(self, axis, gamma, gy, x_hat, x, xp):
         mpi_comm = self.comm.mpi_comm
-        tmp = xp.empty(gamma.size * 2, dtype=x.dtype)
-        gy.sum(axis=axis, out=tmp[:gamma.size])
-        (gy * x_hat).sum(axis=axis, out=tmp[gamma.size:])
-        if x.dtype == numpy.float16:
+        tmp = xp.empty(gamma.size * 2, dtype=gamma.dtype)
+        gy.sum(axis=axis, out=tmp[:gamma.size], dtype=gamma.dtype)
+        (gy * x_hat).sum(axis=axis, out=tmp[gamma.size:], dtype=gamma.dtype)
+        if gamma.dtype == numpy.float16:
             tmp = tmp.astype(numpy.float32)
         if xp is cuda.cupy:
             chainer.cuda.Stream.null.synchronize()
         mpi_comm.Allreduce(
             self.mpi4py_module.IN_PLACE,
             self.memory_utility_module.array_to_buffer_object(tmp))
-        if x.dtype == numpy.float16:
+        if gamma.dtype == numpy.float16:
             tmp = tmp.astype(numpy.float16)
         tmp *= 1.0 / mpi_comm.size
         gbeta = tmp[:gamma.size]
@@ -98,26 +98,26 @@ class _NcclBackend(_MultiNodeBatchNormalizationBackend):
 
     def forward(self, axis, gamma, x, xp):
         gpu_buffer_n_elems = gamma.size * 2
-        gpu_buffer_size = x.dtype.itemsize * gpu_buffer_n_elems
+        gpu_buffer_size = gamma.dtype.itemsize * gpu_buffer_n_elems
         gpu_buffer_a = self.memory_utility_module.DeviceMemory()
         gpu_buffer_b = self.memory_utility_module.DeviceMemory()
         gpu_buffer_a.assign(gpu_buffer_size)
         gpu_buffer_b.assign(gpu_buffer_size)
         gpu_buffer_a_array = gpu_buffer_a.array(
-            gpu_buffer_n_elems, dtype=x.dtype)
-        x.mean(axis=axis, out=gpu_buffer_a_array[:gamma.size])
-        xp.square(x).mean(axis=axis, out=gpu_buffer_a_array[gamma.size:])
+            gpu_buffer_n_elems, dtype=gamma.dtype)
+        x.mean(axis=axis, out=gpu_buffer_a_array[:gamma.size], dtype=gamma.dtype)
+        xp.square(x).mean(axis=axis, out=gpu_buffer_a_array[gamma.size:], dtype=gamma.dtype)
         stream = chainer.cuda.Stream.null
         self.comm._init_comms()
         self.comm.nccl_comm.allReduce(gpu_buffer_a.ptr(),
                                       gpu_buffer_b.ptr(),
                                       gpu_buffer_n_elems,
-                                      self.get_nccl_type_id(x.dtype),
+                                      self.get_nccl_type_id(gamma.dtype),
                                       self.nccl.NCCL_SUM,
                                       stream.ptr)
         gpu_buffer_b_array = gpu_buffer_b.array(
             gpu_buffer_n_elems,
-            dtype=x.dtype)
+            dtype=gamma.dtype)
         gpu_buffer_b_array *= 1.0 / self.comm.size
         mean = gpu_buffer_b_array[:gamma.size]
         sqmean = gpu_buffer_b_array[gamma.size:]
@@ -126,27 +126,27 @@ class _NcclBackend(_MultiNodeBatchNormalizationBackend):
 
     def backward(self, axis, gamma, gy, x_hat, x, xp):
         gpu_buffer_n_elems = gamma.size * 2
-        gpu_buffer_size = x.dtype.itemsize * gpu_buffer_n_elems
+        gpu_buffer_size = gamma.dtype.itemsize * gpu_buffer_n_elems
         gpu_buffer_a = self.memory_utility_module.DeviceMemory()
         gpu_buffer_b = self.memory_utility_module.DeviceMemory()
         gpu_buffer_a.assign(gpu_buffer_size)
         gpu_buffer_b.assign(gpu_buffer_size)
         gpu_buffer_a_array = gpu_buffer_a.array(
             gpu_buffer_n_elems,
-            dtype=x.dtype)
-        gy.sum(axis=axis, out=gpu_buffer_a_array[:gamma.size])
-        (gy * x_hat).sum(axis=axis, out=gpu_buffer_a_array[gamma.size:])
+            dtype=gamma.dtype)
+        gy.sum(axis=axis, out=gpu_buffer_a_array[:gamma.size], dtype=gamma.dtype)
+        (gy * x_hat).sum(axis=axis, out=gpu_buffer_a_array[gamma.size:], dtype=gamma.dtype)
         stream = chainer.cuda.Stream.null
         self.comm._init_comms()
         self.comm.nccl_comm.allReduce(gpu_buffer_a.ptr(),
                                       gpu_buffer_b.ptr(),
                                       gpu_buffer_n_elems,
-                                      self.get_nccl_type_id(x.dtype),
+                                      self.get_nccl_type_id(gamma.dtype),
                                       self.nccl.NCCL_SUM,
                                       stream.ptr)
         gpu_buffer_b_array = gpu_buffer_b.array(
             gpu_buffer_n_elems,
-            dtype=x.dtype)
+            dtype=gamma.dtype)
         gpu_buffer_b_array *= 1.0 / self.comm.size
         gbeta = gpu_buffer_b_array[:gamma.size]
         ggamma = gpu_buffer_b_array[gamma.size:]
@@ -219,8 +219,8 @@ class MultiNodeBatchNormalizationFunction(function.Function):
             x_type.dtype.kind == 'f',
             x_type.ndim >= gamma_type.ndim + 1,
             x_type.shape[1:1 + M] == gamma_type.shape,
-            gamma_type.dtype == x_type.dtype,
-            beta_type.dtype == x_type.dtype,
+            gamma_type.dtype.kind == 'f',
+            gamma_type.dtype == beta_type.dtype,
             gamma_type.shape == beta_type.shape,
         )
         if len(in_types) == 5:
@@ -237,8 +237,8 @@ class MultiNodeBatchNormalizationFunction(function.Function):
         x, gamma, beta = inputs[:3]
         if chainer.configuration.config.train:
             if self.running_mean is None:
-                self.running_mean = xp.zeros_like(gamma)
-                self.running_var = xp.zeros_like(gamma)
+                self.running_mean = xp.zeros_like(gamma, dtype=x.dtype)
+                self.running_var = xp.zeros_like(gamma, dtype=x.dtype)
             else:
                 self.running_mean = xp.array(self.running_mean)
                 self.running_var = xp.array(self.running_var)
@@ -276,9 +276,10 @@ class MultiNodeBatchNormalizationFunction(function.Function):
             self.x_hat = _xhat(x, mean, self.std, expander)
             y = gamma * self.x_hat
             y += beta
+            y = y.astype(x.dtype)
         else:
             self.x_hat, y = cuda.elementwise(
-                'T x, T mean, T std, T gamma, T beta', 'T x_hat, T y',
+                'T x, U mean, U std, U gamma, U beta', 'T x_hat, T y',
                 '''
                 x_hat = (x - mean) / std;
                 y = gamma * x_hat + beta;
@@ -307,8 +308,8 @@ class MultiNodeBatchNormalizationFunction(function.Function):
                 del temp_ar
             else:
                 cuda.elementwise(
-                    'T mean, T var, T decay, T adjust',
-                    'T r_mean, T r_var',
+                    'U mean, U var, U decay, U adjust',
+                    'U r_mean, Ur_var',
                     '''
                     r_mean = r_mean * decay + mean * (1 - decay);
                     r_var = r_var * decay + var * (1 - decay) * adjust;
@@ -339,6 +340,7 @@ class MultiNodeBatchNormalizationFunction(function.Function):
             gmean = -gs * gbeta
             gvar = -0.5 * gamma / var * ggamma
             gx = gs[expander] * gy
+            gx = gx.astype(x.dtype, copy=False)
             return gx, ggamma, gbeta, gmean, gvar
 
         # Note: If length of inputs is not 5, we must be in train mode.
@@ -349,11 +351,12 @@ class MultiNodeBatchNormalizationFunction(function.Function):
         if xp is numpy:
             gx = (gamma / self.std)[expander] * (
                 gy - (self.x_hat * ggamma[expander] + gbeta[expander]) / m)
+            gx = gx.astype(x.dtype, copy=False)
         else:
             inv_m = numpy.float32(1) / m
             gx = cuda.elementwise(
-                'T gy, T x_hat, T gamma, T std, T ggamma, T gbeta, \
-                T inv_m',
+                'T gy, T x_hat, U gamma, U std, U ggamma, U gbeta, \
+                U inv_m',
                 'T gx',
                 'gx = (gamma / std) * (gy - (x_hat * ggamma + gbeta) * \
                 inv_m)',
