@@ -90,6 +90,8 @@ class PureNcclCommunicator(mpi_communicator_base.MpiCommunicatorBase):
         # pack grads from params -> buffer A
         self._pack_params_to_buffer(params, allreduce_grad_dtype, stream)
         # Allreduce from buffer A -> buffer B
+        print("allreduce dtype id", _communication_utility._get_nccl_type_id(
+                                     allreduce_grad_dtype))
         self.nccl_comm.allReduce(self.gpu_buffer_a.ptr(),
                                  self.gpu_buffer_b.ptr(), n_elems,
                                  _communication_utility._get_nccl_type_id(

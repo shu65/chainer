@@ -422,6 +422,8 @@ def check_allreduce_grad_mixed_dtype(param, model, use_gpu):
         # which is nccl_comm.allReduce
         called_args = communicator.nccl_comm.allReduce.__mock_call_args[0][0]
         actual_dtype = called_args[3]
+        print("answer_dtype", answer_dtype)
+        print("actual_dtype", actual_dtype)
         assert answer_dtype == actual_dtype
     else:
         # For other MPI-based communicators,
