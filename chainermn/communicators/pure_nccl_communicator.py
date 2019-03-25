@@ -36,7 +36,7 @@ class PureNcclCommunicator(mpi_communicator_base.MpiCommunicatorBase):
                     'numpy.float64, or None.')
         else:
             self.allreduce_grad_dtype = None
-        print("self.allreduce_grad_dtype", self.allreduce_grad_dtype)
+        print("self.allreduce_grad_dtype", self.allreduce_grad_dtype, )
         self.batched_copy = batched_copy
         self.grad_dtype_to_allreduce_dtype_kernel = None
         self.allreduce_dtype_to_grad_dtype_kernel = None
@@ -91,6 +91,7 @@ class PureNcclCommunicator(mpi_communicator_base.MpiCommunicatorBase):
         # pack grads from params -> buffer A
         self._pack_params_to_buffer(params, allreduce_grad_dtype, stream)
         # Allreduce from buffer A -> buffer B
+        print("allreduce dtype", allreduce_grad_dtype)
         print("allreduce dtype id", _communication_utility._get_nccl_type_id(
                                      allreduce_grad_dtype))
         self.nccl_comm.allReduce(self.gpu_buffer_a.ptr(),
