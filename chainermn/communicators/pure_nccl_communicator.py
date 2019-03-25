@@ -75,7 +75,7 @@ class PureNcclCommunicator(mpi_communicator_base.MpiCommunicatorBase):
         self._init_comms()
         params = _memory_utility.extract_params_set_grad(model)
 
-        if self.allreduce_grad_dtype:
+        if self.allreduce_grad_dtype is not None:
             allreduce_grad_dtype = self.allreduce_grad_dtype
         else:
             allreduce_grad_dtype = chainer.get_dtype()
