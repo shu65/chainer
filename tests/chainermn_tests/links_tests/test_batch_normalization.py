@@ -1,6 +1,7 @@
 import chainer
 import chainer.testing
 import chainer.utils
+import gc
 import mpi4py.MPI
 import numpy
 import pytest
@@ -225,6 +226,7 @@ def test_version_check():
 def test_multi_node_bn_cpu(communicator_class, backend, dtype):
     comm = create_communicator(communicator_class, mpi_comm,
                                use_gpu=False)
+    comm.mpi_comm.barrier()
     check_multi_node_bn(comm, backend=backend, dtype=dtype)
     comm.mpi_comm.barrier()
 
@@ -241,8 +243,11 @@ def test_multi_node_bn_cpu(communicator_class, backend, dtype):
 def test_multi_node_bn_gpu(communicator_class, backend, dtype):
     comm = create_communicator(communicator_class, mpi_comm,
                                use_gpu=True)
+    comm.mpi_comm.barrier()
     check_multi_node_bn(comm, use_gpu=True, backend=backend, dtype=dtype)
     comm.mpi_comm.barrier()
+    del comm
+    gc.collect()
 
 
 @pytest.mark.parametrize(('communicator_class', 'backend'), [
