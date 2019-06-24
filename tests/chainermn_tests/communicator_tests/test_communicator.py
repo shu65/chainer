@@ -246,6 +246,7 @@ def destroy_communicator(comm):
     unhandled CUDA error. To avoid this, we need to make sure to
     destory NCCL communicator after every use.
     """
+    comm.mpi_comm.barrier()
     if hasattr(comm, 'nccl_comm') and comm.nccl_comm is not None:
         comm.nccl_comm.destroy()
         comm.nccl_comm = None
@@ -563,6 +564,7 @@ class TestDifferentDtype(unittest.TestCase):
 
     def teardown(self):
         if self.communicator:
+            self.communicator.mpi_comm.barrier()
             destroy_communicator(self.communicator)
 
     def check_send_recv(self, x):
@@ -838,6 +840,7 @@ class TestNonContiguousArray(unittest.TestCase):
 
     def teardown(self):
         if self.communicator:
+            self.communicator.mpi_comm.barrier()
             destroy_communicator(self.communicator)
 
     def check_send(self):
@@ -891,6 +894,7 @@ class TestMpiCommunicatorBase(unittest.TestCase):
 
     def teardown(self):
         if self.communicator:
+            self.communicator.mpi_comm.barrier()
             destroy_communicator(self.communicator)
 
     def check_send_recv_obj(self, x, tag=0,
