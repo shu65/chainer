@@ -246,6 +246,7 @@ def destroy_communicator(comm):
     unhandled CUDA error. To avoid this, we need to make sure to
     destory NCCL communicator after every use.
     """
+    comm.mpi_comm.barrier()
     if hasattr(comm, 'nccl_comm') and comm.nccl_comm is not None:
         chainer.cuda.Stream.null.synchronize()
         comm.mpi_comm.barrier()
@@ -253,9 +254,9 @@ def destroy_communicator(comm):
         comm.nccl_comm = None
     if hasattr(comm, 'intra_nccl_cojmm') and comm.intra_nccl_comm is not None:
         chainer.cuda.Stream.null.synchronize()
-        comm.mpi_comm.barrier()
         comm.intra_nccl_comm.destroy()
         comm.intra_nccl_comm = None
+    comm.mpi_comm.barrier()
 
 
 def check_send_and_recv(communicator, *shape):
