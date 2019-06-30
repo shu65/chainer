@@ -3,6 +3,7 @@ import chainer.cuda
 import chainer.links as L
 import chainer.testing
 import chainermn
+import gc
 import numpy as np
 import pytest
 
@@ -253,6 +254,7 @@ def check_cycle_model(gpu, param):
                 err = model(X[i:i + 1], Y[i:i + 1])
                 err.backward()
                 del err
+                gc.collect()
         else:
             model = Cycle1(
                 d, communicator, rank_next, rank_prev)
@@ -263,6 +265,7 @@ def check_cycle_model(gpu, param):
                 err = model()
                 err.backward()
                 del err
+                gc.collect()
 
 
 @pytest.mark.parametrize('param', params)
@@ -302,6 +305,7 @@ def check_crossing_model(gpu, param):
             err = model(X[i:i + 1], Y[i:i + 1])
             err.backward()
             del err
+            gc.collect()
 
 
 @pytest.mark.parametrize('param', params)
@@ -337,6 +341,7 @@ def check_branching_model(gpu, communicator, rank_next, rank_prev,
                 err = model(X[i:i + 1], Y[i:i + 1])
                 err.backward()
                 del err
+                gc.collect()
         else:
             model = BranchChild(d, communicator, 0)
             if gpu:
@@ -346,6 +351,7 @@ def check_branching_model(gpu, communicator, rank_next, rank_prev,
                 err = model()
                 err.backward()
                 del err
+                gc.collect()
 
 
 def check_branching_models(gpu, param):
@@ -403,6 +409,7 @@ def check_twisting_model(gpu, param):
             err = model(X[i:i + 1], Y[i:i + 1])
             err.backward()
             del err
+            gc.collect()
 
 
 @pytest.mark.parametrize('param', params)
@@ -450,6 +457,7 @@ def check_tuple_data_model(gpu, param):
             assert err is not None
             err.backward()
             del err
+            gc.collect()
 
 
 @pytest.mark.parametrize('param', params)

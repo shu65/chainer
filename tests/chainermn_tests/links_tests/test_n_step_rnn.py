@@ -6,6 +6,7 @@ import chainer.functions as F
 import chainer.links as L
 import chainer.testing
 import chainermn
+import gc
 import numpy as np
 import pytest
 
@@ -83,6 +84,7 @@ class TestNStepRNN(unittest.TestCase):
             err = model(X[i:i + 1], Y[i:i + 1])
             err.backward()
             del err
+            gc.collect()
 
         # Check if backprop finishes without deadlock.
         self.assertTrue(True)
@@ -119,6 +121,7 @@ class TestNStepRNN(unittest.TestCase):
             err = model(X[i:i + 1], Y[i:i + 1])
             err.backward()
             del err
+            gc.collect()
 
         # Check if backprop finishes without deadlock.
         self.assertTrue(True)
