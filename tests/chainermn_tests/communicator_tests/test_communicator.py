@@ -246,6 +246,7 @@ def destroy_communicator(comm):
     unhandled CUDA error. To avoid this, we need to make sure to
     destory NCCL communicator after every use.
     """
+    comm.mpi_comm.barrier()
     if hasattr(comm, 'nccl_comm') and comm.nccl_comm is not None:
         chainer.cuda.Stream.null.synchronize()
         comm.mpi_comm.barrier()
@@ -412,6 +413,8 @@ def check_allreduce_grad_mixed_dtype(param, model, use_gpu):
     else:
         communicator = comm_class(mpi_comm)
 
+    if use_gpu:
+        chainer.cuda.Stream.null.synchronize()
     mpi_comm.barrier()
 
     # answer type: see the document of `create_communicator`
@@ -472,6 +475,8 @@ def check_allreduce_grad_mixed_dtype(param, model, use_gpu):
 
 def check_collective_communication(param, use_gpu):
     communicator = create_communicator(param, use_gpu)
+    if use_gpu:
+        chainer.cuda.Stream.null.synchronize()
     mpi_comm.barrier()
 
     model = ExampleModel(param.model_dtype)
