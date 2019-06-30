@@ -252,6 +252,7 @@ def check_cycle_model(gpu, param):
             for i in range(n):
                 err = model(X[i:i + 1], Y[i:i + 1])
                 err.backward()
+                del err
         else:
             model = Cycle1(
                 d, communicator, rank_next, rank_prev)
@@ -261,6 +262,7 @@ def check_cycle_model(gpu, param):
             for i in range(n):
                 err = model()
                 err.backward()
+                del err
 
 
 @pytest.mark.parametrize('param', params)
@@ -299,6 +301,7 @@ def check_crossing_model(gpu, param):
         for i in range(n):
             err = model(X[i:i + 1], Y[i:i + 1])
             err.backward()
+            del err
 
 
 @pytest.mark.parametrize('param', params)
@@ -333,6 +336,7 @@ def check_branching_model(gpu, communicator, rank_next, rank_prev,
             for i in range(n):
                 err = model(X[i:i + 1], Y[i:i + 1])
                 err.backward()
+                del err
         else:
             model = BranchChild(d, communicator, 0)
             if gpu:
@@ -341,6 +345,7 @@ def check_branching_model(gpu, communicator, rank_next, rank_prev,
             for i in range(n):
                 err = model()
                 err.backward()
+                del err
 
 
 def check_branching_models(gpu, param):
@@ -397,6 +402,7 @@ def check_twisting_model(gpu, param):
         for i in range(n):
             err = model(X[i:i + 1], Y[i:i + 1])
             err.backward()
+            del err
 
 
 @pytest.mark.parametrize('param', params)
@@ -443,6 +449,7 @@ def check_tuple_data_model(gpu, param):
                 err = model()
             assert err is not None
             err.backward()
+            del err
 
 
 @pytest.mark.parametrize('param', params)
